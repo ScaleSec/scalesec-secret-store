@@ -176,7 +176,7 @@ deploy () {
 
     # enable
     # vault secrets enable scalesecSecretStorePlugin
-    vault secrets enable -path=scalesecsecrets scalesecSecretStorePlugin
+    vault secrets enable -options=config_key=config_value -description="ScaleSec Secret Store Plugin Example" -path=scalesecsecrets scalesecSecretStorePlugin
 
     # Vault display plugin information
     vault plugin info secret/scalesecSecretStorePlugin
@@ -238,12 +238,22 @@ test_write () {
 
 test_read () {
     vault_login
-    vault read scalesecsecrets/test secret_key
+    # General read
+    vault read scalesecsecrets/test
+    # Read but pass a key=value pair.  IE: secret_key=key_name to read only that key and return only that value
+    vault read scalesecsecrets/test secret_key=key_name
+
 }
 
 test_delete () {
     vault_login
-    vault delete scalesecsecrets/test secret_key
+    # General delele all secrets here
+    vault delete scalesecsecrets/test
+    # Delete but pass a key=value pair.  IE: secret_key=key_name to delete only that key and return only that value
+    vault delete scalesecsecrets/test secret_key=key_name
+}
+test_list () {
+    vault list scalesecsecrets/test
 }
 
 test () {

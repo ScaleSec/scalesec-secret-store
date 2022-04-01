@@ -1,8 +1,6 @@
 // TODO:
-
 // [] Write some place for example
 // [] Read some place for example
-// [] verify crashing logger
 
 // Credit where Credit is due.  This code is based on the
 // Hashicorp Vault Guide:  https://github.com/hashicorp/vault-guides.git
@@ -25,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -47,7 +46,7 @@ type scalesecSecretStoreBackend struct {
 	*framework.Backend
 
 	// You can add additional vars here that you want to keep for the running
-	// of the plugin .. Like configuration arguments.
+	// of the plugin .. Like configuration arguments or plugin name
 	pluginName string
 }
 
@@ -58,7 +57,7 @@ var _ logical.Factory = Factory
 // Return: our newly configured backend or and error object
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 
-	b, err := newBackend()
+	b, err := newBackend(conf.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -67,28 +66,31 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 		return nil, fmt.Errorf("configuration passed into backend is nil")
 	}
 
-	//  https://pkg.go.dev/github.com/hashicorp/vault/sdk@v0.3.0/logical#BackendConfig
-	// TODO: THESE - SHOW - VERIFY IF THEY ARE CRASHING PLUGIN
-	//	conf.Logger.Debug("scalesecSecretStore.Factory:-> Enter")
-	//	conf.Logger.Debug("scalesecSecretStore.Factory:-> conf.BackendUUID: %s", conf.BackendUUID)
-	//	conf.Logger.Debug("scalesecSecretStore.Factory:-> conf.Config: %v", conf.Config)
+	// https://pkg.go.dev/github.com/hashicorp/vault/sdk@v0.3.0/logical#BackendConfig
+	// The BackendConfig.Config map is set by the vault secrets enable command.
+	// plugin_name and plugin_type are automatically set by vault framework
+	// custom config items are passed using the -options and passing key value pair:  -options=config_key=config_value
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> Enter")
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> ", "conf.BackendUUID:", conf.BackendUUID)
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> ", "conf.Config:", conf.Config)
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> ", "conf.Config[plugin_name]:", conf.Config["plugin_name"])
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> ", "conf.Config[plugin_type]:", conf.Config["plugin_type"])
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> ", "conf.Config[config_key]:", conf.Config["config_key"])
 
 	if err := b.Setup(ctx, conf); err != nil {
-		conf.Logger.Debug("scalesecSecretStore.Factory:-> b.Setup error: %s", err)
+		conf.Logger.Debug("scalesecSecretStore.Factory:-> b.Setup error", "Error", err)
 		return nil, err
 	}
 
-	//	conf.Logger.Debug("scalesecSecretStore.Factory:-> Leaving")
+	conf.Logger.Debug("scalesecSecretStore.Factory:-> Leaving")
 	return b, nil
 }
 
-// Constructor to inital our Backend structure so Vault plugin framework cancall out functions
+// Constructor to initialize our Backend structure so Vault plugin framework can call functions
 // on our Backend.
 
-func newBackend() (*scalesecSecretStoreBackend, error) {
-
-	// TODO: THESE - SHOW - VERIFY IF THEY ARE CRASHING PLUGIN
-	//	hclogger.Default().Info("scalesecSecretStore:newBackend(): -> Enter")
+func newBackend(logger hclog.Logger) (*scalesecSecretStoreBackend, error) {
+	logger.Debug("scalesecSecretStore:newBackend(): -> Enter")
 
 	b := &scalesecSecretStoreBackend{
 		// if you have additional vars to the backend structure you would init them here
@@ -103,30 +105,26 @@ func newBackend() (*scalesecSecretStoreBackend, error) {
 		// 2 TypeCredential = Authorization Backend
 		BackendType: logical.TypeLogical,
 		Paths: framework.PathAppend(
-			b.paths(),
+			b.paths(logger),
 		),
 	}
 
-	// TODO: THESE - SHOW - VERIFY IF THEY ARE CRASHING PLUGIN
-	//	hclogger.Default().Info("scalesecSecretStore:newBackend(): -> Leaving")
+	logger.Debug("scalesecSecretStore:newBackend(): -> Leaving")
 	return b, nil
 }
 
 // setup the mapping between our functions and the hashicorp framework so it knows how to call
 // the functions that we have implemented based on the command given to vault.
-
 // It gets the path from the command and operation that was requested.
 // It provides pointer to our functions for vault to call to perfrom internal operations
-func (b *scalesecSecretStoreBackend) paths() []*framework.Path {
-	// TODO: THESE - SHOW - VERIFY IF THEY ARE CRASHING PLUGIN
-	//	hclogger.Default().Info("scalesecSecretStore.paths(): -> Enter")
-	//	hclogger.Default().Info("scalesecSecretStore.paths(): -> Leaving")
+func (b *scalesecSecretStoreBackend) paths(logger hclog.Logger) []*framework.Path {
+	logger.Debug("scalesecSecretStore.paths(): -> Enter")
 
-	// TODO: change this to return to a var then return the var so we can move the leaving message
-	return []*framework.Path{
+	// Defing the paths to our functions for vault and then return
+	frameworkPath := []*framework.Path{
 		{
 			//
-			// getting the path
+			// setting the path
 			//
 
 			Pattern: framework.MatchAllRegex("path"),
@@ -173,12 +171,10 @@ func (b *scalesecSecretStoreBackend) paths() []*framework.Path {
 			ExistenceCheck: b.handleExistenceCheck,
 		},
 	}
-}
 
-//
-//
-//
-//
+	logger.Debug("scalesecSecretStore.paths(): -> Leaving")
+	return frameworkPath
+}
 
 // ============================================================================================
 // handleExistenceCheck: Check your secret Store to see if an secret exist
@@ -187,17 +183,22 @@ func (b *scalesecSecretStoreBackend) paths() []*framework.Path {
 // RETURN:  bool  := Return True/False  True = Exist  False = Does Not Exist
 //			error := Error message if there is an error in your processing - nil if you have no error
 // ============================================================================================
+
 func (b *scalesecSecretStoreBackend) handleExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
 	b.Logger().Debug("scalesecSecretStore.handleExistenceCheck:-> Enter")
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> *logical.Request: %v", req))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> *framework.FieldData: %v", data))
 
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> req.Data: %s", req.Data))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> req.Path: %s", req.Path))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> req.MountPoint: %s", req.MountPoint))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleExistenceCheck:-> req.Data: %s", req.Data))
+	// loop over keys and values in the map.
+	for data_key, data_value := range req.Data {
+		b.Logger().Debug("scalesecSecretStore.handleExistenceCheck:-> req.Data", "key:", data_key, "value:", data_value)
+	}
 
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
-	// ***** Start Replace with your logic to determin if the secret exists:
+	// ***** **** Start your if existence check logic
 
 	// Read from the local storage to see if the secret exists
 	out, err := req.Storage.Get(ctx, req.Path)
@@ -209,9 +210,10 @@ func (b *scalesecSecretStoreBackend) handleExistenceCheck(ctx context.Context, r
 
 	b.Logger().Debug("scalesecSecretStore.handleExistenceCheck:-> Leaving")
 
-	// ***** End Replace of your logic: Return Boolean (True if Exist or False if it does not); Error or nil
+	// ***** **** End your if existence check logic
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
+	// Return Boolean (True if Exist or False if it does not); Error or nil
 	return out != nil, nil
 }
 
@@ -227,35 +229,39 @@ func (b *scalesecSecretStoreBackend) handleExistenceCheck(ctx context.Context, r
 
 func (b *scalesecSecretStoreBackend) handleRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("scalesecSecretStore.handleRead:-> Enter")
+	// Make sure we have a ClientToken to insure we have authentication with Vault.
+	if req.ClientToken == "" {
+		err := fmt.Errorf("ClientToken is empty")
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> Leaving with error: %s", err))
+		return nil, err
+	}
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> *logical.Request: %v", req))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> *framework.FieldData: %v", data))
 
-	// TODO: Do we need this
-	//	if req.ClientToken == "" {
-	//		b.Logger().Debug("scalesecSecretStore.handleRead:-> Leaving with error")
-	//		return nil, fmt.Errorf("client token empty")
-	//	}
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.Path: %s", req.Path))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.MountPoint: %s", req.MountPoint))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.Data: %s", req.Data))
+	// loop over keys and values in the map.
+	for data_key, data_value := range req.Data {
+		b.Logger().Debug("scalesecSecretStore.handleRead:-> req.Data", "key:", data_key, "value:", data_value)
+	}
 
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 	// **** Start your read logic
 
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.Data: %s", req.Data))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.Path: %s", req.Path))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleRead:-> req.MountPoint: %s", req.MountPoint))
-
-	path := data.Get("path").(string)
-	// read from local storage
-	//	out, readerr := req.Storage.Get(ctx, req.Path)
-	//	if readerr != nil {
-	//		return nil, fmt.Errorf("error getting reading secret path: %s error: %s", req.Path, readerr)
-	//	}
-
-	// Read data from the storage backend based on the path provided
-	// the data we are reading should come back as a json string
 	var rawData map[string]interface{}
+	path := data.Get("path").(string)
+
 	// Example hardcoded data
-	fetchedData := []byte(`{"secretkey":"secretValue", "secretPath":"` + path + `"}`)
-	//fetchedData := []byte(fmt.Sprintf("{\"%s\":\"%v\", \"secretPath\":\"%s\"}", out.Key, out.Value, path))
+	fetchedData := []byte("")
+
+	if len(req.Data) != 0 {
+		// No data (key/value) passed on read request IE: vault read scalesecsecrets/test secret_key
+		fetchedData = []byte(`{"all_secrets_keys":"all_secrets_values", "secretPath":"` + path + `"}`)
+	} else {
+		// data (key/value) was passed on read request IE: vault read scalesecsecrets/test secret_key=secretPath
+		fetchedData = []byte(`{"secretPath":"` + path + `"}`)
+	}
 
 	// Check to see if we have data that should be returned.
 	if fetchedData == nil {
@@ -295,16 +301,23 @@ func (b *scalesecSecretStoreBackend) handleRead(ctx context.Context, req *logica
 
 func (b *scalesecSecretStoreBackend) handleWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("scalesecSecretStore.handleWrite:-> Enter")
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.ClientToken: %s", req.ClientToken))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> *logical.Reqeust: %v", req))
+	// Make sure we have a ClientToken to insure we have authentication with Vault.
+	if req.ClientToken == "" {
+		err := fmt.Errorf("ClientToken is empty")
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> Leaving with error: %s", err))
+		return nil, err
+	}
+
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> *logical.Request: %v", req))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> *framework.FieldData: %v", data))
 
-	// We don't need this
-	// check to see if we have a client token on the request
-	//	if req.ClientToken == "" {
-	//		b.Logger().Debug("scalesecSecretStore.handleWrite:-> Leaving with error")
-	//		return nil, fmt.Errorf("client token empty")
-	//	}
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.Path: %s", req.Path))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.MountPoint: %s", req.MountPoint))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.Data: %s", req.Data))
+	// loop over keys and values in the map.
+	for data_key, data_value := range req.Data {
+		b.Logger().Debug("scalesecSecretStore.handleWrite:-> req.Data", "key:", data_key, "value:", data_value)
+	}
 
 	// Check to make sure that we have data to actually store
 	if len(req.Data) == 0 {
@@ -317,39 +330,9 @@ func (b *scalesecSecretStoreBackend) handleWrite(ctx context.Context, req *logic
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> Path: %s", path))
 
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
-	// ***** Start - YOUR STORAGE WRITE LOGIC
+	// ***** Start your write logic
 
-	// Store the secert data in the storage backend for the specified path
-
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.Data: %s", req.Data))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.Path: %s", req.Path))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> req.MountPoint: %s", req.MountPoint))
-
-	// ** THIS WRITE LOGIC DOES NOT WORK >> NEED SOME THING TO WRITE TO .. MAYBE OS ???
-
-	// Read from the local storage to get it's location
-
-	//*	out, readerr := req.Storage.Get(ctx, req.Path)
-	//*	if readerr != nil {
-	//*		return nil, fmt.Errorf("error getting storage location for path: %s error: %s", req.Path, readerr)
-	//*	}
-	//*	if out == nil {
-	//*		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleWrite:-> logical storeage is nil"))
-	//*		return nil, fmt.Errorf("scalesecSecretStore.handleWrite: logical storeage is nil")
-	//*	}
-	//*
-	//*	// write to the local storage
-	//*	for key, value := range req.Data {
-	//*		out.Key = key
-	//*		out.Value = value.([]byte)
-	//*		fmt.Printf("key: %s value: %v\n", key, value)
-	//*		err := req.Storage.Put(ctx, out)
-	//*		if err != nil {
-	//*			return nil, fmt.Errorf("error writing %s error %s", key, err)
-	//*		}
-	//*	}
-
-	// ***** End - YOUR STORAGE WRITE LOGIC
+	// ***** End - Your write logic
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
 	// return nil logical.Response and nil error for success
@@ -368,28 +351,54 @@ func (b *scalesecSecretStoreBackend) handleWrite(ctx context.Context, req *logic
 
 func (b *scalesecSecretStoreBackend) handleDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("scalesecSecretStore.handleDelete:-> Enter")
+	// Make sure we have a ClientToken to insure we have authentication with Vault.
+	if req.ClientToken == "" {
+		err := fmt.Errorf("ClientToken is empty")
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> Leaving with error: %s", err))
+		return nil, err
+	}
+
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> *logical.Request: %v", req))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> *framework.FieldData: %v", data))
 
-	if req.ClientToken == "" {
-		b.Logger().Debug("scalesecSecretStore.handleDelete:-> Leaving with error")
-		return nil, fmt.Errorf("client token empty")
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> req.Path: %s", req.Path))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> req.MountPoint: %s", req.MountPoint))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> req.Data: %s", req.Data))
+	// loop over keys and values in the map.
+	for data_key, data_value := range req.Data {
+		b.Logger().Debug("scalesecSecretStore.handleDelete:-> req.Data", "key:", data_key, "value:", data_value)
 	}
 
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 	// ***** Start your delete Logic
 
-	// EXAMPLE DELETE LOGIC
+	path := data.Get("path").(string)
 
-	// Remove entry form the storage backend for the specified path
+	if len(req.Data) != 0 {
+		// No data (key/value) passed on Delete request IE: vault delete scalesecsecrets/test
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> delete all secrets at path %s", path))
+	} else {
+		// data (key/value) was passed on read request IE: vault delete scalesecsecrets/test secret_key=secretPath
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleDelete:-> delete secrets based on data: %v", data))
+	}
 
+	// Optional Response for delete: It is totally fine if you want to return nil for the resp.
+	// You can return a key/value response if you want.  This could be helpful if you want to
+	// return what was actually deleted.
+	var rawData map[string]interface{}
+	fetchedData := []byte(`{"delete_key1":"delete_value1", "delete_key2":"delete_value2"}`)
+	jsonutil.DecodeJSON(fetchedData, &rawData)
+	resp := &logical.Response{
+		Data: rawData,
+	}
 	// ***** End your Delete Logic
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 
-	// return nil logical.Response and nil error for success
-
 	b.Logger().Debug("scalesecSecretStore.handleDelete:-> Leaving")
-	return nil, nil
+	//	return resp or nil, error = nil  : for success
+	//  we are returning a list respose which will return a key and an list o a
+	return resp, nil
+
 }
 
 // ============================================================================================
@@ -403,21 +412,26 @@ func (b *scalesecSecretStoreBackend) handleDelete(ctx context.Context, req *logi
 
 func (b *scalesecSecretStoreBackend) handleList(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	b.Logger().Debug("scalesecSecretStore.handleList:-> Enter")
+	// Make sure we have a ClientToken to insure we have authentication with Vault.
+	if req.ClientToken == "" {
+		err := fmt.Errorf("ClientToken is empty")
+		b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> Leaving with error: %s", err))
+		return nil, err
+	}
+
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> *logical.Request: %v", req))
 	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> *framework.FieldData: %v", data))
 
-	// TODO: Do we need this
-	//	if req.ClientToken == "" {
-	//		b.Logger().Debug("scalesecSecretStore.handleRead:-> Leaving with error")
-	//		return nil, fmt.Errorf("client token empty")
-	//	}
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.Path: %s", req.Path))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.MountPoint: %s", req.MountPoint))
+	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.Data: %s", req.Data))
+	// loop over keys and values in the map.
+	for data_key, data_value := range req.Data {
+		b.Logger().Debug("scalesecSecretStore.handleList:-> req.Data", "key:", data_key, "value:", data_value)
+	}
 
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 	// **** Start your List logic
-
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.Data: %s", req.Data))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.Path: %s", req.Path))
-	b.Logger().Debug(fmt.Sprintf("scalesecSecretStore.handleList:-> req.MountPoint: %s", req.MountPoint))
 
 	path := data.Get("path").(string)
 
