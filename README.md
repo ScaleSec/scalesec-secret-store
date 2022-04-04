@@ -1,11 +1,22 @@
-# scalesec-secret-store: 
-Vault Custom Plugin **scalesecSecretStore** is an example Hashicorp custom secret engine plugin. It helps illustrate how to create a custom secret store backend by showing what happens in the lifecycle of a plug.  I provides a  starting point to help jump start your own custom plugin development effort
+<img align="right" src="./images/ScaleSec%20Logo.png">
+
+# scalesec-secret-store:   
+Vault Custom Plugin **scalesecSecretStore** is an example Hashicorp custom secret engine plugin based off the Hashicorp [vault-guides](https://github.com/hashicorp/vault-guides/tree/master/plugins). This version helps illustrate how to create a custom secret store backend and provides a starting point to help jump start your own custom plugin develoment.It does this by providing:
+- Comments in the code explaining what the sections of code are doing
+- Logging in all the defined functions so you can see the plugin life cycle at work.
+- Providing a unified development; testing and debugging experience under one single project
+
+<img align="center" src="./images/overview.png">
 
 **Setup:**
-* Installation of Go Lang
-* Installation of Hashicorp Vault:  Recommend the ScaleSec Vault Assistant project: xxxxxx
-* VSCode is recommended for an IDE
-* Checkout code from GitHub
+
+
+* Installation of [Go Lang](https://go.dev/) is required to build the plugin. A fundamental knowledge of go is not required but is recommended.   
+* Installation of Hashicorp Vault is required.  It is recommend you use the ScaleSec Vault Assistant project: https://github.com/ScaleSec/vault-assistant to install vault. This helps provide the unified experience.
+* VSCode is recommended for an IDE and is what we base our examples on.
+* Checkout the scalesec-secret-store project from GitHub.
+
+**Useage:**
 
 `make-scalesec-secret-store-plugin.sh`: command script to help you build and deploy the plugin code.  It takes in the following arguments in sequence you wish executed:  
 * debug - Set the debug flags for the a build
@@ -74,16 +85,12 @@ _Delve Commands:_ Enter help to learn the commands to use dlv.  Hear are some to
    - [ ] `vault list scalesecsecrets/test` Run the command you want to debug
 
 
+# References 
+Developing this example the following references were very helpful.
 
-
-https://learn.hashicorp.com/tutorials/vault/getting-started-secrets-engines
-
-https://learn.hashicorp.com/tutorials/vault/plugin-backends
-
-https://discuss.hashicorp.com/t/debug-vault-plugin-with-vs-code/14806/2
-
-https://groups.google.com/g/vault-tool/c/oV5bi1ls76s
-
-https://github.com/golang/vscode-go/blob/master/docs/debugging.md
-
-https://github.com/golang/vscode-go/blob/master/docs/debugging-legacy.md#selecting-legacy-debug-adapter
+- https://learn.hashicorp.com/tutorials/vault/getting-started-secrets-engines
+- https://learn.hashicorp.com/tutorials/vault/plugin-backends
+- https://discuss.hashicorp.com/t/debug-vault-plugin-with-vs-code/14806/2
+- https://groups.google.com/g/vault-tool/c/oV5bi1ls76s
+- https://github.com/golang/vscode-go/blob/master/docs/debugging.md
+- https://github.com/golang/vscode-go/blob/master/docs/debugging-legacy.md#selecting-legacy-debug-adapter

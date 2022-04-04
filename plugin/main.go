@@ -20,10 +20,10 @@ var (
 
 func main() {
 
-	// DONOT sent output to stdout in the main function.  Vault will see it and think there is an
+	// DO NOT sent output to stdout in the main function.  Vault will see it and think there is an
 	// error loading the plugin.  Instead .. send data to the vault logger
 
-	// Display log informaiton about the plugin in the Vault log file.
+	// Display log information about the plugin in the Vault log file.
 	// The Var Values are set by the building of the plugin in the link options.
 	// This allows you see and verify that vault is picking up the plugin version you expect
 
