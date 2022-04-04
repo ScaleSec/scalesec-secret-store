@@ -1,10 +1,27 @@
-#!/bin/bash
+# --------------------------------------------------
+# Script vault-assistant-install.sh
+#
+# Author: Dave Wunderlich  dave@scalesec.com; david.wunderlich@gmail.com
+#
+#---------------------------------------------------
 #
 # This shell sciprt is here instead of a make file to make it easy to build and install
 # the plugin in Vault.
+# 
+# NOTE: This script assumes you installed vault using ScaleSec's Vault Assistant scripts
+#       on GitHub: https://github.com/ScaleSec/vault-assistant
+#       
 #
 # USEAGE:
 # make-scalesec-secret-store-plugin.sh <option: build; install; all>
+#
+# debug  : Sets the debug flag to build the plugin for debugging with delv
+# build  : Bulid the plugin for the defined architectures
+# deploy : Deploy and Configure the plugin in vauklt
+# test   : Run vault commands to exercise the plugin logic
+# 
+#---------------------------------------------------
+#!/bin/bash
 
 ##
 ## Funtion build
@@ -75,25 +92,27 @@ build () {
 }
 
 ##
-## deploy plugin to vault
+## deploy custom plugin to vault
 ##
-deploy () {
+deploy () { 
     echo "***************************************************"
     echo " DEPLOY"
     echo "***************************************************"
 
     export VAULT_ROOT=~/vault 
 
+    # -----------------------------------------------------------
     # Vault was installed and configured using the
     # ScaleSec Vault Assistant Project
-    # GitHub: xxxxxxx
-
+    # GitHub: https://github.com/ScaleSec/vault-assistant
+    #
     # ScaleSec Vault Assistand Project makes it easy to run vault in a non-development mode.
     # Running in a non-development mode allows:
     # 1: Seal and Un-Seal Vault
-    # 2: Persistant Store of Secrets
-    # 3: Sgining of custom plugins
-    
+    # 2: Persistant storege of secrets
+    # 3: Signing of custom plugins
+    # -----------------------------------------------------------
+
     #
     # make sure vault is configured for custom plugins
     #
@@ -105,12 +124,12 @@ deploy () {
     VAULT_CONFIG_HCL=~/vault/config.hcl
 
     if [[ ! -d $VAULT_PLUGIN_DIR ]]; then
-        echo "Custom plugin directory not found $VAULT_PLUGIN_DIR ...  Consider using ScaleSec Vault Assistant"
+        echo "Custom plugin directory not found $VAULT_PLUGIN_DIR ...  Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
         exit 9
     fi
 
     if [[ ! -f $VAULT_CONFIG_HCL ]]; then
-        echo "Vault config.hcl not found at: $VAULT_CONFIG_HCL ... Consider using ScaleSec Vault Assistant"
+        echo "Vault config.hcl not found at: $VAULT_CONFIG_HCL ... Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
         exit 9
     fi
 
@@ -118,7 +137,7 @@ deploy () {
     if grep -q "$VAULT_PLUGIN_DIR" $VAULT_CONFIG_HCL; then
         echo "Vault HCL configured with custom plugin directory"
     else
-        echo "Vault config.hcl missing: plugin_directory =\"$VAULT_PLUGIN_DIR\" ... Consider using ScaleSec Vault Assistant"
+        echo "Vault config.hcl missing: plugin_directory =\"$VAULT_PLUGIN_DIR\" ... Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
         exit 9
     fi
 
@@ -134,7 +153,7 @@ deploy () {
 
     # Makesure vault is running
     if [[ `ps -ef | grep "vault/config.hcl" | grep -v grep` == "" ]]; then
-        echo "Please start Vault and make sure it is unsealed ... Consider using ScaleSec Vault Assistant"
+        echo "Please start Vault and make sure it is unsealed ... Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
         exit 9
     fi
     
@@ -143,21 +162,20 @@ deploy () {
     if [[ $UNSEAL_STATUS == "false" ]]; then
        echo "Vault is Unsealed"
     else
-        echo "Vault needs to be unsealed ... Consider using ScaleSec Vault Assistant"
+        echo "Vault needs to be unsealed ... Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
         exit 9
     fi
 
     #
+    # Vault is ready.  Login and start the install and configuration steps.
+    #
     vault_login
 
-    # installing a plugin
+    # Installing a plugin:
     # https://www.vaultproject.io/docs/internals/plugins#plugin-catalog
 
     # Copy Pluign to custom_plugin directory
     cp $PLUGIN_TO_INSTALL $VAULT_PLUGIN_DIR
-
-    # Enable mlock
-    # sudo setcap cap_ipc_lock=+ep $VAULT_PLUGIN_DIR/scalesecSecretStorePlugin
 
     # Create the SHASUM for the plugin
     echo "Generate the shasum 256 for the plugin we are installing"
@@ -168,25 +186,24 @@ deploy () {
     unregister
 
     # Register the plugin with Vault
-    # new
     vault plugin register -sha256=$SHASUM secret scalesecSecretStorePlugin
 
-    # old
-    # vault write sys/plugins/catalog/secret/scalesecSecretStorePlugin sha256="$SHASUM" command=scalesecSecretStorePlugin
-
     # enable
-    # vault secrets enable scalesecSecretStorePlugin
-    vault secrets enable -path=scalesecsecrets scalesecSecretStorePlugin
+    # -options : used to provide a sample config_key and config_value.  Refere tothe scalesecSecretStore.go to see how it can be used.
+    vault secrets enable -options=config_key=config_value -description="ScaleSec Secret Store Plugin Example" -path=scalesecsecrets scalesecSecretStorePlugin
 
     # Vault display plugin information
     vault plugin info secret/scalesecSecretStorePlugin
 
-    # List secret eng
+    # List secret engines
     vault secrets list
 
 }
 
-unregister () {
+##
+## Unregister the current version of the custom plugin.
+##
+unregister () { 
     echo "UNREGISTER"
     # disable and deregister so the new version is picked up
     PLUGIN_LIST=`vault secrets list | grep 'scalesecSecretStorePlugin'`
@@ -206,14 +223,17 @@ unregister () {
 
 }
 
-vault_login () {
+##
+## Get the saved root token and login to Vault
+##
+vault_login () { 
     # Get the root token
     VAULT_ROOT_TOKEN=""
     if [[ $VAULT_ROOT_TOKEN == "" ]]; then
         # if the token is not set manually then get we assume your using ScaleSec Vault Assistant
         # and will get the root token based on where the aisstant stortes it.
         if [[ ! -e ~/vault/local-root-token ]]; then 
-            echo "Doesnt look like we were able to locate the root token.  Consider using ScaleSec Vault Assistant"
+            echo "Doesnt look like we were able to locate the root token.  Consider using ScaleSec Vault Assistant: https://github.com/ScaleSec/vault-assistant"
             exit 9
         else
             VAULT_ROOT_TOKEN=`cat ~/vault/local-root-token`
@@ -226,48 +246,75 @@ debug () {
     export DEBUG_FLAG="TRUE"
 }
 
-all () {
+##
+## If no arguments provided run the set of default commands
+##
+default_commands () {
     build
     deploy
 }
 
+##
+## Run the vault write commands for the custom plugin
+##
 test_write () {
     vault_login
     vault write scalesecsecrets/test secret_key="secret_value"
 }
 
+##
+## Run the vault read commands for the custom plugin
+##
 test_read () {
     vault_login
-    vault read scalesecsecrets/test secret_key
+    # General read
+    vault read scalesecsecrets/test
+    # Read but pass a key=value pair.  IE: secret_key=key_name to read only that key and return only that value
+    vault read scalesecsecrets/test secret_key=key_name
+
 }
 
+##
+## Run the vault delete commands for the custom plugin
+##
 test_delete () {
     vault_login
-    vault delete scalesecsecrets/test secret_key
+    # General delele all secrets here
+    vault delete scalesecsecrets/test
+    # Delete but pass a key=value pair.  IE: secret_key=key_name to delete only that key and return only that value
+    vault delete scalesecsecrets/test secret_key=key_name
 }
 
+##
+## Run the vault list commands for the custom plugin
+##
+test_list () {
+    vault list scalesecsecrets/test
+}
+
+##
+## Run all the tests
+##
 test () {
     test_write
     test_read
+    test_list
     test_delete
     
 }
 
+##
+## Main execution logic.  Read the option(s) and processe them 
+##
+
 if [[ -z "$1" ]]; then
-    all
+    default_commands
     exit
 fi
 
 export OPTIONS=$@
 for OPTION in $OPTIONS; do
     echo "OPTION=$OPTION"
-   # if [[ $OPTION == "build" ]]; then
-   #     build
-   # fi
-   #
-   # if [[ $OPTION == "deploy" ]]; then
-   #     deploy
-   #43 fi
 
     case "$OPTION" in
         "debug") debug
@@ -287,7 +334,7 @@ for OPTION in $OPTIONS; do
         "test_delete") test_list
         ;;
 
-        *) all
+        *) default_commands
         ;;
     esac
 
