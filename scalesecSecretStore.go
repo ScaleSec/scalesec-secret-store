@@ -1,8 +1,4 @@
-// TODO:
-// [] Write some place for example
-// [] Read some place for example
-
-// Credit where Credit is due.  This code is based on the
+// This code is based on the
 // Hashicorp Vault Guide:  https://github.com/hashicorp/vault-guides.git
 
 // ********************************************************************************
@@ -30,8 +26,8 @@ import (
 )
 
 const scalesecSecretStoreBackendHelp = `
-The ScaleSec Secrets Store Vault Plugin is a functional example of how a vault secret backend work.
-Add your business logic to the plugin as needed to crate your own custom secret backend.
+The ScaleSec Secrets Store Vault Plugin is a functional example of how a vault secret backend works.
+Add your business logic to the plugin as needed to create your own custom secret backend.
 `
 
 // Hashicorp: "github.com/hashicorp/vault/sdk/framework"
