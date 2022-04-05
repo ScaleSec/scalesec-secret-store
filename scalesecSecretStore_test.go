@@ -2,6 +2,7 @@ package scalesecSecretStore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,6 +64,8 @@ func TestList(t *testing.T) {
 	assert.Containsf(t, response.Data["keys"], "key2", "Vault List response should contain 'key2' - %v", response.Data)
 	assert.Nil(t, err, "Response error %s", err)
 	assert.NotNil(t, response, "Response should not be null")
+	b.Logger().Debug("Response Object: %v", response)
+
 }
 
 // Test the write command:
@@ -87,6 +90,8 @@ func TestWrite(t *testing.T) {
 	response, err := b.HandleRequest(context.Background(), request)
 	assert.Nil(t, err, "Response error %s", err)
 	assert.Nil(t, response, "Response message %v", response)
+	b.Logger().Debug("Response Object: %v", response)
+
 }
 
 // *********************************************************
@@ -115,6 +120,8 @@ func TestRead(t *testing.T) {
 
 	assert.Nil(t, err, "Response error %s", err)
 	assert.NotNil(t, response, "Response should not be null")
+	b.Logger().Debug("Response Object: %v", response)
+
 }
 
 // vault read scalesecsecrets/test secret_key=key_name
@@ -143,6 +150,8 @@ func TestReadWithData(t *testing.T) {
 
 	assert.Nil(t, err, "Response error %s", err)
 	assert.NotNil(t, response, "Response should not be null")
+	b.Logger().Debug("Response Object: %v", response)
+
 }
 
 // *********************************************************
@@ -168,6 +177,7 @@ func TestDelete(t *testing.T) {
 
 	assert.Nil(t, err, "Response error %s", err)
 	b.Logger().Debug("Response Object: %v", response)
+	fmt.Printf("TestDeleteWithData Response: %v", response)
 
 }
 
@@ -193,5 +203,5 @@ func TestDeleteWithData(t *testing.T) {
 
 	assert.Nil(t, err, "Response error %s", err)
 	b.Logger().Debug("Response Object: %v", response)
-
+	fmt.Printf("TestDeleteWithData Response: %v", response)
 }

@@ -16,12 +16,12 @@ package scalesecSecretStore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
-	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -242,44 +242,80 @@ func (b *scalesecSecretStoreBackend) handleRead(ctx context.Context, req *logica
 		b.Logger().Debug("scalesecSecretStore.handleRead:-> req.Data", "key:", data_key, "value:", data_value)
 	}
 
+	responseData := make(map[string]interface{})
+	var err error
+
+	// Populate the responseData with what you want to return or set err to a non nil error object
+
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
 	// **** Start your read logic
 
-	var rawData map[string]interface{}
 	path := data.Get("path").(string)
 
 	// Example hardcoded data
-	fetchedData := []byte("")
 
-	if len(req.Data) != 0 {
+	if len(req.Data) == 0 {
 		// No data (key/value) passed on read request IE: vault read scalesecsecrets/test secret_key
-		fetchedData = []byte(`{"all_secrets_keys":"all_secrets_values", "secretPath":"` + path + `"}`)
+		responseData["all_secrets_keys"] = "all_secrets_values"
+		responseData["secretPath"] = path
+
+		// Show  some complex data
+		submap := map[string]string{}
+		submap["sub_key1"] = "sub_value1"
+		submap["sub_key2"] = "sub_value2"
+
+		submap_json, json_err := json.Marshal(submap)
+
+		if json_err != nil {
+			err = json_err
+			b.Logger().Debug("scalesecSecretStore.handleRead: json.Marshal ->", "Error=", err)
+		} else {
+			responseData["sub_keys"] = string(submap_json)
+		}
+
+		submap2 := map[string]string{}
+		submap2["sub2_key1"] = "sub2_value1"
+		submap2["sub2_key2"] = "sub2_value2"
+		fetchedArray := []map[string]string{}
+
+		fetchedArray = append(fetchedArray, submap2)
+		fetchedArray = append(fetchedArray, submap)
+
+		submap2_json, json_err2 := json.Marshal(fetchedArray)
+
+		if json_err2 != nil {
+			err = json_err2
+			b.Logger().Debug("scalesecSecretStore.handleRead: json.Marshal ->", "Error=", err)
+		} else {
+			responseData["array_of_maps"] = string(submap2_json)
+		}
+
 	} else {
 		// data (key/value) was passed on read request IE: vault read scalesecsecrets/test secret_key=secretPath
-		fetchedData = []byte(`{"secretPath":"` + path + `"}`)
+		responseData["secretPath"] = path
+
 	}
 
 	// Check to see if we have data that should be returned.
-	if fetchedData == nil {
+	if responseData == nil || len(responseData) == 0 {
 		b.Logger().Debug("scalesecSecretStore.handleRead:-> Leaving error message in response")
 		resp := logical.ErrorResponse("No value at Mount:%v Path:%v", req.MountPoint, path)
 		return resp, nil
 	}
 
-	// Take the data and load  the rawData interface so it can go into the response
-	err := jsonutil.DecodeJSON(fetchedData, &rawData)
+	// ***** End - Your Read logic
+	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
+
+	// If the read logic set err to a non nil error object then we return an error
 	if err != nil {
 		// use the HCP errwrap class to create and return an error message
 		b.Logger().Debug("scalesecSecretStore.handleRead:-> Leaving with error")
 		return nil, fmt.Errorf("json decoding failed: %w", err)
 	}
 
-	// ***** End - Your Read logic
-	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
-
-	// Generate the json response
+	// We dont have an error so return the responseData Generate the json response
 	resp := &logical.Response{
-		Data: rawData,
+		Data: responseData,
 	}
 
 	b.Logger().Debug("scalesecSecretStore.handleRead:-> Leaving Resp with data")
@@ -381,11 +417,12 @@ func (b *scalesecSecretStoreBackend) handleDelete(ctx context.Context, req *logi
 	// Optional Response for delete: It is totally fine if you want to return nil for the resp.
 	// You can return a key/value response if you want.  This could be helpful if you want to
 	// return what was actually deleted.
-	var rawData map[string]interface{}
-	fetchedData := []byte(`{"delete_key1":"delete_value1", "delete_key2":"delete_value2"}`)
-	jsonutil.DecodeJSON(fetchedData, &rawData)
+	responseData := make(map[string]interface{})
+	responseData["delete_key1"] = "delete_value1"
+	responseData["delete_key2"] = "delete_value2"
+
 	resp := &logical.Response{
-		Data: rawData,
+		Data: responseData,
 	}
 	// ***** End your Delete Logic
 	// ***** ***** ***** ***** ***** ***** ***** ***** ***** ***** *****
